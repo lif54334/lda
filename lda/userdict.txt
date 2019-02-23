@@ -1,0 +1,10 @@
+FPGA片
+DSP48Es
+脑-机接口
+AdaBoost SVM
+P300
+EEG
+多通道
+自适应
+功率谱
+眼电信号
