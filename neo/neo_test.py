@@ -36,7 +36,7 @@ def hdata():
     cursor = db.cursor()
 
     # SQL 查询语句
-    sql = "SELECT * FROM light"
+    sql = "SELECT * FROM zl_light"
     values = list()
     try:
         # 执行SQL语句

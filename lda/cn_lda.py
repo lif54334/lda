@@ -33,7 +33,7 @@ def sdata():
     cursor = db.cursor()
 
     # SQL 查询语句
-    sql = "SELECT * FROM bci2"
+    sql = "SELECT * FROM zl_light"
     try:
         # 执行SQL语句
         cursor.execute(sql)
@@ -41,15 +41,17 @@ def sdata():
         results = cursor.fetchall()
         with open("abs.txt", "w", encoding="utf8") as f:
             for row in results:
-                id = row[0]
-                title = row[1]
-                key = row[11]
-                abs = row[13]
-                f.write(abs + "\n")
+                title = row[0]
+                abs = row[1]
+                time = row[2]
+                person = row[3]
+                if u'\u4e00' <= abs[3] <= u'\u9fff':
+                    f.write(abs + "\n")
                 # 打印结果
                 # print("id=%s,title=%s,key=%s,abs=%s" % \
                 #       (id,title,key,abs))
-    except:
+    except Exception as e:
+        print(e)
         print("Error: unable to fetch data")
 
     # 关闭数据库连接
@@ -80,7 +82,7 @@ def lda():
 
     dictionary = corpora.Dictionary(train)
     corpus = [dictionary.doc2bow(text) for text in train]
-    lda = LdaModel(corpus=corpus, id2word=dictionary, num_topics=10)
+    lda = LdaModel(corpus=corpus, id2word=dictionary, num_topics=5)
     # 打印前20个topic的词分布
     for item in lda.print_topics(100):
         print(item)
@@ -91,22 +93,6 @@ def lda():
 
 def predict_one():
     lda = models.ldamodel.LdaModel.load("../models/abs_lda.model")
-    with open('abs.txt', 'r', encoding="utf8") as f:
-        lines = f.readlines()
-        test = lines[10]
-    test_doc = list(jieba.cut(test))
-    doc_bow = lda.id2word.doc2bow(test_doc)  # 文档转换成bow
-    doc_lda = lda[doc_bow]  # 得到新文档的主题分布
-    # 输出新文档的主题分布
-    # print(doc_lda)
-    # for topic in doc_lda:
-    #     print("%s\t%f\n" % (lda.print_topic(topic[0]), topic[1]))
-
-
-def predict():
-    lda = models.ldamodel.LdaModel.load("../models/abs_lda.model")
-    for item in lda.print_topics(10):
-        print(item)
     with open('abs.txt', 'r', encoding="utf8") as f:
         lines = f.readlines()
         num = list()
@@ -128,6 +114,70 @@ def predict():
             num.append(doc_lda[arr_max][0])
         print(len(num))
         return num
+
+
+def predict():
+    lda = models.ldamodel.LdaModel.load("../models/abs_lda.model")
+    for item in lda.print_topics(10):
+        print(item)
+    db = pymysql.connect("localhost", "root", "1234", "xian")
+
+    # 使用cursor()方法获取操作游标
+    cursor = db.cursor()
+
+    """读取sql"""
+    # SQL 查询语句
+    sql = "SELECT * FROM zl_light"
+    try:
+        # 执行SQL语句
+        cursor.execute(sql)
+        # 获取所有记录列表
+        results = cursor.fetchall()
+        for row in results:
+            abs=row[1]
+            test_doc = list(jieba.cut(abs))
+            doc_bow = lda.id2word.doc2bow(test_doc)  # 文档转换成bow
+            doc_lda = lda[doc_bow]  # 得到新文档的主题分布
+            values = list()
+            for items in doc_lda:
+                values.append(items[1])
+            arr_values = np.array(values)
+            arr_max = np.argmax(arr_values)
+            theme=doc_lda[arr_max][0]
+            print(theme)
+            cursor = db.cursor()
+            sql_update="update zl_light set theme = '%d'where abs = '%s'"
+            cursor.execute(sql_update % (theme,abs))
+        db.commit()
+        cursor.close()
+
+    except Exception as e:
+        print(e)
+        print("Error: unable to fetch data")
+
+
+    """读取txt"""
+    # with open('abs.txt', 'r', encoding="utf8") as f:
+    #     lines = f.readlines()
+    #     num = list()
+    #     for line in lines:
+    #         test_doc = list(jieba.cut(line))
+    #         doc_bow = lda.id2word.doc2bow(test_doc)  # 文档转换成bow
+    #         doc_lda = lda[doc_bow]  # 得到新文档的主题分布
+    #         # 输出新文档的主题分布
+    #         # print(doc_lda)
+    #         # for topic in doc_lda:
+    #         #     print("%s\t%f\n" % (lda.print_topic(topic[0]), topic[1]))
+    #         values = list()
+    #         for items in doc_lda:
+    #             values.append(items[1])
+    #         arr_values = np.array(values)
+    #         arr_max = np.argmax(arr_values)
+    #         # print(doc_lda[arr_max],doc_lda[arr_max][0])
+    #         # print(doc_lda[arr_max][0])
+    #         num.append(doc_lda[arr_max][0])
+    #     print(len(num))
+    #     return num
         # max=int(values.index(max(values)))+1
         # print(max)
         # num.append(max)
@@ -140,7 +190,7 @@ def insert(data):
 
     # 使用cursor()方法获取操作游标
     cursor = db.cursor()
-    sql_update="update light set theme = '%s'where id = '%d'"
+    sql_update="update zl_bci set theme = '%s'where id = '%d'"
     for i in range(0,len(data)):
         cursor.execute(sql_update % (data[i],i+1))
     # cursor.executemany(sql_update,data)
@@ -151,7 +201,8 @@ def insert(data):
 def main():
     # sdata()
     # cut()
-    lda()
+    # lda()
+    # data=predict_one()
     data = predict()
     print(Counter(data))
     # insert(data)
